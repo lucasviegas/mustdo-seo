@@ -48,7 +48,7 @@ sub decrypt_pass
 }
 
 
-sub check_acesso
+sub check_access
 {
    my ($arg)= @_;
    my ($session);
