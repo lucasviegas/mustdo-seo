@@ -264,7 +264,7 @@ sub put_on_db
       
       if (exists $arg->{"base"}->{"all_descriptions"}{"$d"})
       {
-         push @{$save->{'titles'}}, $arg->{"base"}->{"all_descriptions"}{"$d"};
+         push @{$save->{'descriptions'}}, $arg->{"base"}->{"all_descriptions"}{"$d"};
          next;
       }
 
@@ -284,8 +284,8 @@ sub put_on_db
       push @{$save->{'descriptions'}}, $arg->{"base"}->{"all_descriptions"}{"$d"};
    }
 
-   ## Insert script src found in HTML on db
-   foreach my $s (keys %{$arg->{'process_content'}{'script'}})
+   ## Insert scripts src found in HTML on db
+   foreach my $s (keys %{$arg->{'process_content'}{'scripts'}})
    {
       if (exists $arg->{"base"}->{"all_scripts"}{"$s"})
       {
@@ -374,8 +374,36 @@ sub put_on_db
       };
    }
 
-   $arg->{'fields'} = ['url_url_text_md5_hex','url_url_text','url_processed','url_canonical_list','url_title_list','url_description_list','url_internal_link_list','url_external_link_list','url_script_src_list'];
-   $arg->{'values'} = [md5_hex($arg->{"base"}->{'url_text'}), $arg->{"base"}->{'url_text'}, 1, join(":", @{$save->{'canonical_list'}}), join(":", @{$save->{'titles'}}), join(":", @{$save->{'descriptions'}}), join(":", @{$save->{'int_links'}}), join(":", @{$save->{'ext_links'}}), join(":", @{$save->{'scripts'}})];
+   $arg->{'fields'} = ['url_url_text_md5_hex',
+                       'url_url_text',
+                       'url_processed',
+                       'url_canonical_list',
+                       'url_title_list',
+                       'url_description_list',
+                       'url_internal_link_list',
+                       'url_external_link_list',
+                       'url_script_src_list', 
+                       'url_scripts_inline_amount', 
+                       'url_scripts_inline_length', 
+                       'url_content_md5_hex', 
+                       'url_response_code', 
+                       'url_response_message', 
+                       'url_response_header'];
+   $arg->{'values'} = [md5_hex($arg->{"base"}->{'url_text'}), 
+                       $arg->{"base"}->{'url_text'}, 
+                       1, 
+                       join(":", @{$save->{'canonical_list'}}), 
+                       join(":", @{$save->{'titles'}}), 
+                       join(":", @{$save->{'descriptions'}}), 
+                       join(":", @{$save->{'int_links'}}), 
+                       join(":", @{$save->{'ext_links'}}), 
+                       join(":", @{$save->{'scripts'}}), 
+                       $arg->{'process_content'}{'scripts_inline_amount'}, 
+                       $arg->{'process_content'}{'scripts_inline_length'}, 
+                       $arg->{'process_content'}{'content_md5_hex'}, 
+                       $arg->{'load_html'}{'code'}, 
+                       $arg->{'load_html'}{'message'}, 
+                       $arg->{'load_html'}{'header'}];
 
    ## Update if already on db
    if ($arg->{'data'}->[0]->{'url_id'})
@@ -490,7 +518,16 @@ sub process_content
    $q->find('script')->each(sub
    {
       my $s=$_[1]->attr('src');
-      $arg->{'process_content'}{'script'}{"$s"}++;
+      
+      if ($s)
+      {
+         $arg->{'process_content'}{'scripts'}{"$s"}++;
+      }
+      else
+      {
+         $arg->{'process_content'}{'scripts_inline_amount'}++;
+         $arg->{'process_content'}{'scripts_inline_length'} += length($_[1]->html());
+      }
    });
 
    ## CONTENT
@@ -503,58 +540,39 @@ sub process_content
 sub load_html
 {
    my($arg) = @_;
-   my($ua, $req, $res, $type);
+   my($ua, $req, $res);
 
    $arg->{'load_html'} = {};
 
    require LWP::UserAgent;
 
    $ua   = new LWP::UserAgent;
+   $ua->env_proxy;
    $ua->agent('Mozilla/5.0');
    $ua->timeout(60);
    $req  = HTTP::Request->new(HEAD => $arg->{"base"}->{'url_text'});
    $res  = $ua->request($req);
    $arg->{'load_html'}{'header'} = $res->as_string();
+   $arg->{'load_html'}{'type'} = $res->header('content_type');
 
-   if ($res->is_success)
+   if ($arg->{'load_html'}{'type'} =~ /html/i)
    {
-      $type = $res->header('content_type');
-      
-      if ($type =~ /html/i)
-      {
-         $req = HTTP::Request->new(GET => $arg->{"base"}->{'url_text'});
-         $res = $ua->request($req);
+      $req = HTTP::Request->new(GET => $arg->{"base"}->{'url_text'});
+      $res = $ua->request($req);
 
-         if ($res->is_success)
-         {
-            $arg->{'load_html'}{'code'}    = $res->code;
-            $arg->{'load_html'}{'message'} = $res->message;
-            $arg->{'load_html'}{'html'}    = $res->content;
-            return 1;
-         }
-         else
-         {
-            $arg->{'load_html'}{'error'}         = $res->status_line;
-            $arg->{'load_html'}{'error_code'}    = $res->code;
-            $arg->{'load_html'}{'error_message'} = $res->message;
-            return 0;
-         }
-      }
-      else
-      {
-         $arg->{'load_html'}{'code'}    = $res->code;
-         $arg->{'load_html'}{'message'} = $res->message;
-         return 0;
-      }
+      $arg->{'load_html'}{'status'}  = $res->status_line;
+      $arg->{'load_html'}{'code'}    = $res->code;
+      $arg->{'load_html'}{'message'} = $res->message;
+      $arg->{'load_html'}{'html'}    = $res->content;
    }
    else
    {
-      $arg->{'load_html'}{'error'}         = $res->status_line;
-      $arg->{'load_html'}{'error_code'}    = $res->code;
-      $arg->{'load_html'}{'error_message'} = $res->message;
-      print &set_error(__FILE__, __LINE__, $res->code.'|'.$res->message.'|url '.$arg->{'url_text'}).$/;
-      return 0;
+      $arg->{'load_html'}{'status'}  = $res->status_line;
+      $arg->{'load_html'}{'code'}    = $res->code;
+      $arg->{'load_html'}{'message'} = $res->message;
    }
+   
+   return 1;
 }
 
 

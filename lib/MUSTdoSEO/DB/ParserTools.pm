@@ -108,7 +108,10 @@ sub load_url
       url_bold_strong_amount    => 1, 
       url_bold_strong_text      => 1, 
       url_italic_em_amount      => 1, 
-      url_italic_em_text        => 1
+      url_italic_em_text        => 1, 
+      url_response_code         => 1, 
+      url_response_message      => 1, 
+      url_response_header       => 1
    );
    
    ## Check fields
@@ -165,6 +168,9 @@ sub load_url
    $sql  .=          'url_bold_strong_text, ';
    $sql  .=          'url_italic_em_amount, ';
    $sql  .=          'url_italic_em_text, ';
+   $sql  .=          'url_response_code, ';
+   $sql  .=          'url_response_message, ';
+   $sql  .=          'url_response_header, ';
    $sql  .=          'url_updated ';
    $sql  .=     'FROM urls ';
    $sql  .=    'WHERE '. join(" AND ", @{$arg->{'fields'}}) if (exists $arg->{'fields'} && (ref $arg->{'fields'}) =~ /array/i);
@@ -229,7 +235,10 @@ sub insert_url
       url_bold_strong_amount    => 1, 
       url_bold_strong_text      => 1, 
       url_italic_em_amount      => 1, 
-      url_italic_em_text        => 1
+      url_italic_em_text        => 1, 
+      url_response_code         => 1, 
+      url_response_message      => 1, 
+      url_response_header       => 1
    );
    
    ## Check fields
@@ -290,7 +299,7 @@ sub update_url_id
       url_url_text              => 1, 
       url_inlink_canonical_list => 1, 
       url_canonical_list        => 1, 
-      url_inlink_list          => 1, 
+      url_inlink_list           => 1, 
       url_inlink_anchor_text    => 1, 
       url_title_list            => 1, 
       url_description_list      => 1, 
@@ -312,7 +321,10 @@ sub update_url_id
       url_bold_strong_amount    => 1, 
       url_bold_strong_text      => 1, 
       url_italic_em_amount      => 1, 
-      url_italic_em_text        => 1
+      url_italic_em_text        => 1, 
+      url_response_code         => 1, 
+      url_response_message      => 1, 
+      url_response_header       => 1
    );
    
    ## Check fields
@@ -924,7 +936,7 @@ sub insert_script
       return 0;      
    }
    
-   $arg->{'cont_id'} = $self->{'dbh'}->{'mysql_insertid'};
+   $arg->{'scp_id'} = $self->{'dbh'}->{'mysql_insertid'};
    
    return 1;
 }
